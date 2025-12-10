@@ -162,24 +162,27 @@ export default function App() {
 
   /* FILE UPLOAD: add image layer on top */
   const handleFile = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const newLayer = {
-      id: `image-${Date.now()}`,
-      type: "image",
-      data: {
-        src: url,
-        x: canvasSize.width / 2,
-        y: canvasSize.height / 2,
-        scale: 1,
-        rotation: 0,
-      },
-    };
-    setLayers((prev) => [...prev, newLayer]);
-    // select newly added layer
-    setTimeout(() => setSelectedId(newLayer.id), 50);
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const url = URL.createObjectURL(file);
+
+  const newLayer = {
+    id: `image-${Date.now()}`,
+    type: "image",
+    data: {
+      src: url,
+      blob: file,  // <-- store original file here
+      x: canvasSize.width / 2,
+      y: canvasSize.height / 2,
+      scale: 1,
+      rotation: 0,
+    },
   };
+
+  setLayers((prev) => [...prev, newLayer]);
+};
+
 
   /* ADD TEXT LAYER helper (keeps existing text controls consistent) */
   const addTextLayer = (opts = {}) => {
@@ -248,30 +251,39 @@ export default function App() {
 
   /* Remove background: keeps your API call as before */
   const removeBG = async (id) => {
-    const layer = layers.find((l) => l.id === id);
-    if (!layer || layer.type !== "image") return;
-    try {
-      const blob = await fetch(layer.data.src).then((r) => r.blob());
-      const formData = new FormData();
-      formData.append("image", blob, "img.png");
+  const layer = layers.find((l) => l.id === id);
+  if (!layer || layer.type !== "image") return;
 
-      const res = await fetch("https://backend-creative-pilot.onrender.com/remove-bg", {
-        method: "POST",
-        body: formData,
-      });
+  try {
+    const formData = new FormData();
 
-      if (!res.ok) throw new Error("remove-bg failed");
-      const newBlob = await res.blob();
-      const newUrl = URL.createObjectURL(newBlob);
+    // use the stored blob instead of fetching blob URL
+    formData.append("image", layer.data.blob, "image.png");
 
-      setLayers((prev) =>
-        prev.map((l) => (l.id === id ? { ...l, data: { ...l.data, src: newUrl } } : l))
-      );
-    } catch (err) {
-      console.error("removeBG error", err);
-      alert("Remove BG failed (check server).");
-    }
-  };
+    const res = await fetch("https://backend-creative-pilot.onrender.com/remove-bg", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) throw new Error("Remove BG failed!");
+
+    const newBlob = await res.blob();
+    const newUrl = URL.createObjectURL(newBlob);
+
+    setLayers((prev) =>
+      prev.map((l) =>
+        l.id === id
+          ? { ...l, data: { ...l.data, src: newUrl, blob: new File([newBlob], "removed.png", { type: "image/png" })
+ } }
+          : l
+      )
+    );
+  } catch (err) {
+    console.error(err);
+    alert("Remove BG failed!");
+  }
+};
+
 
   /* DOWNLOAD canvas */
   const downloadImage = () => {
