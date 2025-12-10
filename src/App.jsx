@@ -255,7 +255,7 @@ export default function App() {
       const formData = new FormData();
       formData.append("image", blob, "img.png");
 
-      const res = await fetch("http://localhost:8080/remove-bg", {
+      const res = await fetch("https://backend-creative-pilot.onrender.com/remove-bg", {
         method: "POST",
         body: formData,
       });
